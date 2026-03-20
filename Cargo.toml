@@ -1,0 +1,20 @@
+[package]
+name = "mod"
+edition = "2024"
+version = "26.3.20-1600"
+authors = ["Justinlucas <mrjustinlucas@gmail.com>"]
+categories = ["mod", "modules"]
+description = "Replaces in the provided rust file, every instance of (pub) mod module_name with the contents of the module file."
+documentation = "https://docs.rs/"
+keywords = ["mod", "modules"]
+license = "MIT OR Apache-2.0"
+readme = "README.MD"
+repository = "https://github.com"
+# Binary
+[[bin]]
+path = "src/bin.rs"
+name = "mod"
+[dependencies]
+# None
+[dev-dependencies]
+# None
