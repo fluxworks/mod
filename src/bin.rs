@@ -30,6 +30,11 @@ pub mod _
 mklink C:\Users\CKGuest\norman\\mod.exe C:\Users\CKGuest\norman\target\release\mod.exe
 */
 pub static mut ARGUMENTS:Vec<String> = vec![];
+pub static mut CURRENT_ARGUMENT:Option<String> = None;
+pub static mut PREVIOUS_ARGUMENT:Option<String> = None;
+
+pub static mut INPUT_FROM:Option<String> = None;
+pub static mut OUTPUT_TO:Option<String> = None;
 
 pub mod env
 {
@@ -45,6 +50,7 @@ unsafe fn domain() -> Result<(), Box<dyn crate::error::Error>>
 {
     unsafe
     {
+        //OUTPUT_TO = "module.rs".to_string(); 
         let arguments = crate::env::args().skip(1).collect::<Vec<String>>();
 
         match arguments.len()
@@ -76,7 +82,7 @@ error | mismatched number of arguments.
 Please check the arrangement of the provided arguments.
 
 mod | Replaces in the provided rust file,  every instance of
-(pub) mod module_name with the contents of the cooresponding module file.
+(pub) mod module_name with the contents of the corresponding module file.
 
 usage | mod from <input-file> to <output-file>"#
                     );
@@ -84,12 +90,56 @@ usage | mod from <input-file> to <output-file>"#
                     return Ok(());
                 }
 
-                for argument in arguments
+                for ( index, argument ) in arguments.iter().enumerate()
                 {
-                    ARGUMENTS.push(argument);
+                    PREVIOUS_ARGUMENT = CURRENT_ARGUMENT;
+                                        
+                    let current_argument = argument.clone();
+                    
+                    match current_argument.as_str()
+                    {
+                        "from" | "to" =>
+                        {
+                            CURRENT_ARGUMENT = Some(current_argument.clone());
+                        }
+                        
+                        current =>
+                        {
+                            match PREVIOUS_ARGUMENT
+                            {
+                                Some( previous ) =>
+                                {
+                                    match previous.as_str()
+                                    {
+                                        "from" =>
+                                        {
+                                            INPUT_FROM = Some(argument.clone());
+                                        }
+
+                                        "to" =>
+                                        {
+                                            OUTPUT_TO = Some(argument.clone());
+                                        }
+                                        
+                                        previously =>
+                                        {
+                                            
+                                        }
+                                    }
+                                }
+                                
+                                None =>
+                                {
+                                    
+                                }
+                            }
+                        }
+                    }
+                    
+                    ARGUMENTS.push(argument.clone());
                 }
 
-                println!( r#"{:?}"#, ARGUMENTS );
+                println!( r#"[]]::{:?}"#, ARGUMENTS );
 
                 return Ok(());
             }
