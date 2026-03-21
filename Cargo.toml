@@ -1,8 +1,8 @@
 [package]
 name = "mod"
 edition = "2024"
-version = "26.3.20-1600"
-authors = ["Justinlucas <mrjustinlucas@gmail.com>"]
+version = "26.3.21-1600"
+authors = ["Justin Lucas <mrjustinlucas@gmail.com>"]
 categories = ["mod", "modules"]
 description = "Replaces in the provided rust file, every instance of (pub) mod module_name with the contents of the module file."
 documentation = "https://docs.rs/"
