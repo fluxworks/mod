@@ -1,1 +1,1 @@
-C:\Users\CKGuest\norman\target\release\mod.exe from input.rs to replaced.rs 0
+C:\Users\CKGuest\mod\target\release\mod.exe from test\lib.rs to test\replaced.rs
