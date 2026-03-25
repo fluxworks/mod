@@ -1,9 +1,12 @@
 /*! mod | v26.3.20 */
 #![allow
 (
+    dead_code,
     static_mut_refs,
     unused_attributes,
+    unused_imports,
     unused_unsafe,
+    unused_variables,
 )]
 
 #![feature
@@ -19,7 +22,7 @@ pub mod _
 pub mod _
 {
     /*!*/
-    use ::
+    use crate::
     {
         *,
     };
@@ -45,9 +48,29 @@ pub static mut CURRENT_PATH:Option<String> = None;
 pub static mut LINES:Vec<String> = vec![];
 pub static mut BUFFER:Vec<String> = vec![];
 
+pub mod borrow
+{
+    pub use std::borrow::{*};
+}
+
 pub mod boxed
 {
     pub use std::boxed::{*};
+}
+
+pub mod cell
+{
+    pub use std::cell::{*};
+}
+
+pub mod cmp
+{
+    pub use std::cmp::{*};
+}
+
+pub mod collections
+{
+    pub use std::collections::{*};
 }
 
 pub mod env
@@ -60,6 +83,11 @@ pub mod error
     pub use std::error::{*};
 }
 
+pub mod fmt
+{
+    pub use std::fmt::{*};
+}
+
 pub mod fs
 {
     pub use std::fs::{*};
@@ -70,11 +98,21 @@ pub mod io
     pub use std::io::{*};
 }
 
+pub mod isize
+{
+    pub use std::isize::{*};
+}
+
+pub mod iter
+{
+    pub use std::iter::{*};
+}
+
 pub mod is
 {
     /*!
     */
-    use ::
+    use crate::
     {
         *,
     };
@@ -93,7 +131,7 @@ pub mod is
     // fn is_escapable_character(c: char) -> bool
     pub fn escapable_character(c: char) -> bool
     {
-        if is_meta_character(c) { return true; }
+        if crate::is::meta_character(c) { return true; }
         
         if !c.is_ascii() { return false; }
         
@@ -105,7 +143,7 @@ pub mod is
         }
     }
     // fn is_valid_cap_letter(b: u8) -> bool
-    fn valid_cap_letter(b: u8) -> bool
+    pub fn valid_cap_letter(b: u8) -> bool
     {
         match b
         {
@@ -113,6 +151,26 @@ pub mod is
             _ => false,
         }
     }
+}
+
+pub mod mem
+{
+    pub use std::mem::{*};
+}
+
+pub mod num
+{
+    pub use std::num::{*};
+}
+
+pub mod ops
+{
+    pub use std::ops::{*};
+}
+
+pub mod panic
+{
+    pub use std::panic::{*};
 }
 
 pub mod path
@@ -124,7 +182,7 @@ pub mod regex
 {
     /*!
     Provides a **lightweight** regex engine for searching strings. */
-    use ::
+    use crate::
     {
         *,
     };
@@ -134,7 +192,7 @@ pub mod regex
     {
         /*!
         */
-        use ::
+        use crate::
         {
             *,
         };
@@ -152,25 +210,27 @@ pub mod regex
             }
         }
         
-        impl ::error::Error for Error {}
+        impl crate::error::Error for Error {}
 
-        impl ::fmt::Display for Error 
+        impl crate::fmt::Display for Error 
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result 
+            fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result 
             {
                 write!(f, "{}", self.msg)
             }
         }
 
     }
+    pub use self::error::*;
     
     pub mod hir
     {
         /*!
         */
-        use ::
+        use crate::
         {
             boxed::{ Box },
+            regex::{ error::{ Error }, utf8 },
             string::{ String },
             vec::{ self, Vec },
             *,
@@ -181,12 +241,1044 @@ pub mod regex
         {
             /*!
             */
-            use ::
+            use crate::
             {
+                boxed::{ Box },
+                cell::{Cell, RefCell},
+                regex::
+                {
+                    error::Error,
+                    hir::{self, Config, Flags, Hir, HirKind},
+                },
+                string::{String, ToString},
+                vec::{ self, Vec },
                 *,
             };
             /*
             */
+            const ERR_TOO_MUCH_NESTING: &str = "pattern has too much nesting";
+            const ERR_TOO_MANY_CAPTURES: &str = "too many capture groups";
+            const ERR_DUPLICATE_CAPTURE_NAME: &str = "duplicate capture group name";
+            const ERR_UNCLOSED_GROUP: &str = "found open group without closing ')'";
+            const ERR_UNCLOSED_GROUP_QUESTION: &str = "expected closing ')', but got end of pattern";
+            const ERR_UNOPENED_GROUP: &str = "found closing ')' without matching '('";
+            const ERR_LOOK_UNSUPPORTED: &str = "look-around is not supported";
+            const ERR_EMPTY_FLAGS: &str = "empty flag directive '(?)' is not allowed";
+            const ERR_MISSING_GROUP_NAME: &str = "expected capture group name, but got end of pattern";
+            const ERR_INVALID_GROUP_NAME: &str = "invalid group name";
+            const ERR_UNCLOSED_GROUP_NAME: &str = "expected end of capture group name, but got end of pattern";
+            const ERR_EMPTY_GROUP_NAME: &str = "empty capture group names are not allowed";
+            const ERR_FLAG_UNRECOGNIZED: &str = "unrecognized inline flag";
+            const ERR_FLAG_REPEATED_NEGATION: &str = "inline flag negation cannot be repeated";
+            const ERR_FLAG_DUPLICATE: &str = "duplicate inline flag is not allowed";
+            const ERR_FLAG_UNEXPECTED_EOF: &str = "expected ':' or ')' to end inline flags, but got end of pattern";
+            const ERR_FLAG_DANGLING_NEGATION: &str = "inline flags cannot end with negation directive";
+            const ERR_DECIMAL_NO_DIGITS: &str = "expected decimal number, but found no digits";
+            const ERR_DECIMAL_INVALID: &str = "got invalid decimal number";
+            const ERR_HEX_BRACE_INVALID_DIGIT: &str = "expected hexadecimal number in braces, but got non-hex digit";
+            const ERR_HEX_BRACE_UNEXPECTED_EOF: &str = "expected hexadecimal number, but saw end of pattern before closing brace";
+            const ERR_HEX_BRACE_EMPTY: &str = "expected hexadecimal number in braces, but got no digits";
+            const ERR_HEX_BRACE_INVALID: &str = "got invalid hexadecimal number in braces";
+            const ERR_HEX_FIXED_UNEXPECTED_EOF: &str = "expected fixed length hexadecimal number, but saw end of pattern first";
+            const ERR_HEX_FIXED_INVALID_DIGIT: &str = "expected fixed length hexadecimal number, but got non-hex digit";
+            const ERR_HEX_FIXED_INVALID: &str = "got invalid fixed length hexadecimal number";
+            const ERR_HEX_UNEXPECTED_EOF: &str = "expected hexadecimal number, but saw end of pattern first";
+            const ERR_ESCAPE_UNEXPECTED_EOF: &str = "saw start of escape sequence, but saw end of pattern before it finished";
+            const ERR_BACKREF_UNSUPPORTED: &str = "backreferences are not supported";
+            const ERR_UNICODE_CLASS_UNSUPPORTED: &str = "Unicode character classes are not supported";
+            const ERR_ESCAPE_UNRECOGNIZED: &str = "unrecognized escape sequence";
+            const ERR_POSIX_CLASS_UNRECOGNIZED: &str = "unrecognized POSIX character class";
+            const ERR_UNCOUNTED_REP_SUB_MISSING: &str = "uncounted repetition operator must be applied to a sub-expression";
+            const ERR_COUNTED_REP_SUB_MISSING: &str = "counted repetition operator must be applied to a sub-expression";
+            const ERR_COUNTED_REP_UNCLOSED: &str = "found unclosed counted repetition operator";
+            const ERR_COUNTED_REP_MIN_UNCLOSED: &str = "found incomplete and unclosed counted repetition operator";
+            const ERR_COUNTED_REP_COMMA_UNCLOSED: &str = "found counted repetition operator with a comma that is unclosed";
+            const ERR_COUNTED_REP_MIN_MAX_UNCLOSED: &str = "found counted repetition with min and max that is unclosed";
+            const ERR_COUNTED_REP_INVALID: &str = "expected closing brace for counted repetition, but got something else";
+            const ERR_COUNTED_REP_INVALID_RANGE: &str = "found counted repetition with a min bigger than its max";
+            const ERR_CLASS_UNCLOSED_AFTER_ITEM: &str = "non-empty character class has no closing bracket";
+            const ERR_CLASS_INVALID_RANGE_ITEM: &str = "character class ranges must start and end with a single character";
+            const ERR_CLASS_INVALID_ITEM: &str = "invalid escape sequence in character class";
+            const ERR_CLASS_UNCLOSED_AFTER_DASH: &str = "non-empty character class has no closing bracket after dash";
+            const ERR_CLASS_UNCLOSED_AFTER_NEGATION: &str = "negated character class has no closing bracket";
+            const ERR_CLASS_UNCLOSED_AFTER_CLOSING: &str = "character class begins with literal ']' but has no closing bracket";
+            const ERR_CLASS_INVALID_RANGE: &str = "invalid range in character class";
+            const ERR_CLASS_UNCLOSED: &str = "found unclosed character class";
+            const ERR_CLASS_NEST_UNSUPPORTED: &str = "nested character classes are not supported";
+            const ERR_CLASS_INTERSECTION_UNSUPPORTED: &str = "character class intersection is not supported";
+            const ERR_CLASS_DIFFERENCE_UNSUPPORTED: &str = "character class difference is not supported";
+            const ERR_CLASS_SYMDIFFERENCE_UNSUPPORTED: &str = "character class symmetric difference is not supported";
+            const ERR_SPECIAL_WORD_BOUNDARY_UNCLOSED: &str = "special word boundary assertion is unclosed or has an invalid character";
+            const ERR_SPECIAL_WORD_BOUNDARY_UNRECOGNIZED: &str = "special word boundary assertion is unrecognized";
+            const ERR_SPECIAL_WORD_OR_REP_UNEXPECTED_EOF: &str = "found start of special word boundary or repetition without an end";
+            
+            #[derive(Clone, Debug)]
+            pub struct Parser<'a>
+            {
+                config: Config,pattern: &'a str,                
+                depth: Cell<u32>,pos: Cell<usize>,
+                char: Cell<Option<char>>,capture_index: Cell<u32>,flags: RefCell<Flags>,
+                capture_names: RefCell<Vec<String>>,
+            }
+            
+            impl<'a> Parser<'a> 
+            {
+                pub fn new(config: Config, pattern: &'a str) -> Parser<'a> 
+                {
+                    Parser 
+                    {
+                        config,
+                        pattern,
+                        depth: Cell::new(0),
+                        pos: Cell::new(0),
+                        char: Cell::new(pattern.chars().next()),
+                        capture_index: Cell::new(0),
+                        flags: RefCell::new(config.flags),
+                        capture_names: RefCell::new(vec![]),
+                    }
+                }
+                
+                fn pattern(&self) -> &str { self.pattern }               
+                fn pos(&self) -> usize { self.pos.get() }
+                
+                fn increment_depth(&self) -> Result<u32, Error>
+                {
+                    let old = self.depth.get();
+                    if old > self.config.nest_limit {
+                        return Err(Error::new(ERR_TOO_MUCH_NESTING));
+                    }
+                    
+                    let new = old.checked_add(1).unwrap();
+                    self.depth.set(new);
+                    Ok(old)
+                }
+                
+                fn decrement_depth(&self)
+                {
+                    let old = self.depth.get();
+                    
+                    let new = old.checked_sub(1).unwrap();
+                    self.depth.set(new);
+                }
+                
+                fn char(&self) -> char { self.char.get().expect("codepoint, but parser is done") }                
+                fn is_done(&self) -> bool { self.pos() == self.pattern.len() }                
+                fn flags(&self) -> Flags { *self.flags.borrow() }
+                fn bump(&self) -> bool
+                {
+                    if self.is_done() { return false; }
+                    
+                    self.pos.set(self.pos() + self.char().len_utf8());
+                    self.char.set(self.pattern()[self.pos()..].chars().next());
+                    self.char.get().is_some()
+                }
+                
+                fn bump_if(&self, prefix: &str) -> bool
+                {
+                    if self.pattern()[self.pos()..].starts_with(prefix) {
+                        for _ in 0..prefix.chars().count() {
+                            self.bump();
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                
+                fn bump_and_bump_space(&self) -> bool {
+                    if !self.bump() {
+                        return false;
+                    }
+                    self.bump_space();
+                    !self.is_done()
+                }
+
+                fn bump_space(&self) {
+                    if !self.flags().ignore_whitespace {
+                        return;
+                    }
+                    
+                    while !self.is_done() {
+                        if self.char().is_whitespace() {
+                            self.bump();
+                        } else if self.char() == '#' {
+                            self.bump();
+                            while !self.is_done() {
+                                let c = self.char();
+                                self.bump();
+                                if c == '\n' {
+                                    break;
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                
+                fn peek(&self) -> Option<char> {
+                    if self.is_done() {
+                        return None;
+                    }
+                    self.pattern()[self.pos() + self.char().len_utf8()..].chars().next()
+                }
+                
+                fn peek_space(&self) -> Option<char> {
+                    if !self.flags().ignore_whitespace {
+                        return self.peek();
+                    }
+                    
+                    if self.is_done() {
+                        return None;
+                    }
+                    
+                    let mut start = self.pos() + self.char().len_utf8();
+                    let mut in_comment = false;
+                    for (i, ch) in self.pattern()[start..].char_indices() {
+                        if ch.is_whitespace() {
+                            continue;
+                        } else if !in_comment && ch == '#' {
+                            in_comment = true;
+                        } else if in_comment && ch == '\n' {
+                            in_comment = false;
+                        } else {
+                            start += i;
+                            break;
+                        }
+                    }
+                    self.pattern()[start..].chars().next()
+                }
+
+                fn next_capture_index(&self) -> Result<u32, Error> {
+                    let current = self.capture_index.get();
+                    let next = current
+                        .checked_add(1)
+                        .ok_or_else(|| Error::new(ERR_TOO_MANY_CAPTURES))?;
+                    self.capture_index.set(next);
+                    Ok(next)
+                }
+                
+                fn add_capture_name(&self, name: &str) -> Result<(), Error> {
+                    let mut names = self.capture_names.borrow_mut();
+                    match names.binary_search_by(|n| name.cmp(n)) {
+                        Ok(_) => Err(Error::new(ERR_DUPLICATE_CAPTURE_NAME)),
+                        Err(i) => {
+                            names.insert(i, name.to_string());
+                            Ok(())
+                        }
+                    }
+                }
+
+                fn is_lookaround_prefix(&self) -> bool {
+                    self.bump_if("?=")
+                        || self.bump_if("?!")
+                        || self.bump_if("?<=")
+                        || self.bump_if("?<!")
+                }
+            }
+
+            impl<'a> Parser<'a> {
+                pub fn parse(&self) -> Result<Hir, Error> {
+                    let hir = self.parse_inner()?;
+                    check_hir_nesting(&hir, self.config.nest_limit)?;
+                    Ok(hir)
+                }
+
+                fn parse_inner(&self) -> Result<Hir, Error> {
+                    let depth = self.increment_depth()?;
+                    let mut alternates = vec![];
+                    let mut concat = vec![];
+                    loop {
+                        self.bump_space();
+                        if self.is_done() {
+                            break;
+                        }
+                        match self.char() {
+                            '(' => {
+                                let oldflags = *self.flags.borrow();
+                                if let Some(sub) = self.parse_group()? {
+                                    concat.push(sub);
+                                    *self.flags.borrow_mut() = oldflags;
+                                }
+                                if self.char.get() != Some(')') {
+                                    return Err(Error::new(ERR_UNCLOSED_GROUP));
+                                }
+                                self.bump();
+                            }
+                            ')' => {
+                                if depth == 0 {
+                                    return Err(Error::new(ERR_UNOPENED_GROUP));
+                                }
+                                break;
+                            }
+                            '|' => {
+                                alternates.push(Hir::concat(core::mem::take(&mut concat)));
+                                self.bump();
+                            }
+                            '[' => concat.push(self.parse_class()?),
+                            '?' | '*' | '+' => {
+                                concat = self.parse_uncounted_repetition(concat)?;
+                            }
+                            '{' => {
+                                concat = self.parse_counted_repetition(concat)?;
+                            }
+                            _ => concat.push(self.parse_primitive()?),
+                        }
+                    }
+                    self.decrement_depth();
+                    alternates.push(Hir::concat(concat));
+                    Ok(Hir::alternation(alternates))
+                }
+               
+                fn parse_primitive(&self) -> Result<Hir, Error> {
+                    let ch = self.char();
+                    self.bump();
+                    match ch {
+                        '\\' => self.parse_escape(),
+                        '.' => Ok(self.hir_dot()),
+                        '^' => Ok(self.hir_anchor_start()),
+                        '$' => Ok(self.hir_anchor_end()),
+                        ch => Ok(self.hir_char(ch)),
+                    }
+                }
+                
+                fn parse_escape(&self) -> Result<Hir, Error> {
+                    if self.is_done() {
+                        return Err(Error::new(ERR_ESCAPE_UNEXPECTED_EOF));
+                    }
+                    
+                    let ch = self.char();
+                    match ch {
+                        '0'..='9' => return Err(Error::new(ERR_BACKREF_UNSUPPORTED)),
+                        'p' | 'P' => {
+                            return Err(Error::new(ERR_UNICODE_CLASS_UNSUPPORTED))
+                        }
+                        'x' | 'u' | 'U' => return self.parse_hex(),
+                        'd' | 's' | 'w' | 'D' | 'S' | 'W' => {
+                            return Ok(self.parse_perl_class());
+                        }
+                        _ => {}
+                    }
+                    
+                    self.bump();
+                    if is::meta_character(ch) || is::escapable_character(ch) {
+                        return Ok(self.hir_char(ch));
+                    }
+                    
+                    let special = |ch| Ok(self.hir_char(ch));
+                    match ch {
+                        'a' => special('\x07'),
+                        'f' => special('\x0C'),
+                        't' => special('\t'),
+                        'n' => special('\n'),
+                        'r' => special('\r'),
+                        'v' => special('\x0B'),
+                        'A' => Ok(Hir::look(hir::Look::Start)),
+                        'z' => Ok(Hir::look(hir::Look::End)),
+                        'b' => {
+                            let mut hir = Hir::look(hir::Look::Word);
+                            if !self.is_done() && self.char() == '{' {
+                                if let Some(special) =
+                                    self.maybe_parse_special_word_boundary()?
+                                {
+                                    hir = special;
+                                }
+                            }
+                            Ok(hir)
+                        }
+                        'B' => Ok(Hir::look(hir::Look::WordNegate)),
+                        '<' => Ok(Hir::look(hir::Look::WordStart)),
+                        '>' => Ok(Hir::look(hir::Look::WordEnd)),
+                        _ => Err(Error::new(ERR_ESCAPE_UNRECOGNIZED)),
+                    }
+                }
+                
+                fn maybe_parse_special_word_boundary(&self) -> Result<Option<Hir>, Error> {
+                    assert_eq!(self.char(), '{');
+
+                    let is_valid_char = |c| match c {
+                        'A'..='Z' | 'a'..='z' | '-' => true,
+                        _ => false,
+                    };
+                    let start = self.pos();
+                    if !self.bump_and_bump_space() {
+                        return Err(Error::new(ERR_SPECIAL_WORD_OR_REP_UNEXPECTED_EOF));
+                    }
+                    
+                    if !is_valid_char(self.char()) {
+                        self.pos.set(start);
+                        self.char.set(Some('{'));
+                        return Ok(None);
+                    }
+                    
+                    let mut scratch = String::new();
+                    while !self.is_done() && is_valid_char(self.char()) {
+                        scratch.push(self.char());
+                        self.bump_and_bump_space();
+                    }
+                    
+                    if self.is_done() || self.char() != '}' {
+                        return Err(Error::new(ERR_SPECIAL_WORD_BOUNDARY_UNCLOSED));
+                    }
+                    self.bump();
+                    let kind = match scratch.as_str() {
+                        "start" => hir::Look::WordStart,
+                        "end" => hir::Look::WordEnd,
+                        "start-half" => hir::Look::WordStartHalf,
+                        "end-half" => hir::Look::WordEndHalf,
+                        _ => {
+                            return Err(Error::new(ERR_SPECIAL_WORD_BOUNDARY_UNRECOGNIZED))
+                        }
+                    };
+                    Ok(Some(Hir::look(kind)))
+                }
+                
+                fn parse_hex(&self) -> Result<Hir, Error> {
+                    let digit_len = match self.char() {
+                        'x' => 2,
+                        'u' => 4,
+                        'U' => 8,
+                        unk => unreachable!(
+                            "invalid start of fixed length hexadecimal number {unk}"
+                        ),
+                    };
+                    
+                    if  !self.bump_and_bump_space() {
+                        return Err(Error::new(ERR_HEX_UNEXPECTED_EOF));
+                    }
+                    
+                    if self.char() == '{' {
+                        self.parse_hex_brace()
+                    } else {
+                        self.parse_hex_digits(digit_len)
+                    }
+                }
+                
+                fn parse_hex_digits(&self, digit_len: usize) -> Result<Hir, Error> {
+                    let mut scratch = String::new();
+                    for i in 0..digit_len {
+                        if i > 0 && !self.bump_and_bump_space() {
+                            return Err(Error::new(ERR_HEX_FIXED_UNEXPECTED_EOF));
+                        }
+                        if !is_hex(self.char()) {
+                            return Err(Error::new(ERR_HEX_FIXED_INVALID_DIGIT));
+                        }
+                        scratch.push(self.char());
+                    }
+                    
+                    self.bump_and_bump_space();
+                    match u32::from_str_radix(&scratch, 16).ok().and_then(char::from_u32) {
+                        None => Err(Error::new(ERR_HEX_FIXED_INVALID)),
+                        Some(ch) => Ok(self.hir_char(ch)),
+                    }
+                }
+                
+                fn parse_hex_brace(&self) -> Result<Hir, Error> {
+                    let mut scratch = String::new();
+                    while self.bump_and_bump_space() && self.char() != '}' {
+                        if !is_hex(self.char()) {
+                            return Err(Error::new(ERR_HEX_BRACE_INVALID_DIGIT));
+                        }
+                        scratch.push(self.char());
+                    }
+                    
+                    if self.is_done() {
+                        return Err(Error::new(ERR_HEX_BRACE_UNEXPECTED_EOF));
+                    }
+                    assert_eq!(self.char(), '}');
+                    self.bump_and_bump_space();
+
+                    if scratch.is_empty() {
+                        return Err(Error::new(ERR_HEX_BRACE_EMPTY));
+                    }
+                    match u32::from_str_radix(&scratch, 16).ok().and_then(char::from_u32) {
+                        None => Err(Error::new(ERR_HEX_BRACE_INVALID)),
+                        Some(ch) => Ok(self.hir_char(ch)),
+                    }
+                }
+                
+                fn parse_decimal(&self) -> Result<u32, Error> {
+                    let mut scratch = String::new();
+                    while !self.is_done() && self.char().is_whitespace() {
+                        self.bump();
+                    }
+                    
+                    while !self.is_done() && '0' <= self.char() && self.char() <= '9' {
+                        scratch.push(self.char());
+                        self.bump_and_bump_space();
+                    }
+                    
+                    while !self.is_done() && self.char().is_whitespace() {
+                        self.bump_and_bump_space();
+                    }
+                    
+                    let digits = scratch.as_str();
+                    if digits.is_empty() {
+                        return Err(Error::new(ERR_DECIMAL_NO_DIGITS));
+                    }
+                    match u32::from_str_radix(digits, 10).ok() {
+                        Some(n) => Ok(n),
+                        None => Err(Error::new(ERR_DECIMAL_INVALID)),
+                    }
+                }
+                
+                fn parse_uncounted_repetition(
+                    &self,
+                    mut concat: Vec<Hir>,
+                ) -> Result<Vec<Hir>, Error> {
+                    let sub = match concat.pop() {
+                        Some(hir) => Box::new(hir),
+                        None => {
+                            return Err(Error::new(ERR_UNCOUNTED_REP_SUB_MISSING));
+                        }
+                    };
+                    let (min, max) = match self.char() {
+                        '?' => (0, Some(1)),
+                        '*' => (0, None),
+                        '+' => (1, None),
+                        unk => unreachable!("unrecognized repetition operator '{unk}'"),
+                    };
+                    let mut greedy = true;
+                    if self.bump() && self.char() == '?' {
+                        greedy = false;
+                        self.bump();
+                    }
+                    
+                    if self.flags().swap_greed {
+                        greedy = !greedy;
+                    }
+                    concat.push(Hir::repetition(hir::Repetition {
+                        min,
+                        max,
+                        greedy,
+                        sub,
+                    }));
+                    Ok(concat)
+                }
+                
+                fn parse_counted_repetition(
+                    &self,
+                    mut concat: Vec<Hir>,
+                ) -> Result<Vec<Hir>, Error> {
+                    assert_eq!(self.char(), '{', "expected opening brace");
+                    let sub = match concat.pop() {
+                        Some(hir) => Box::new(hir),
+                        None => {
+                            return Err(Error::new(ERR_COUNTED_REP_SUB_MISSING));
+                        }
+                    };
+                    
+                    if !self.bump_and_bump_space() {
+                        return Err(Error::new(ERR_COUNTED_REP_UNCLOSED));
+                    }
+                    
+                    let min = self.parse_decimal()?;
+                    let mut max = Some(min);
+                    if self.is_done() {
+                        return Err(Error::new(ERR_COUNTED_REP_MIN_UNCLOSED));
+                    }
+                    
+                    if self.char() == ',' {
+                        if !self.bump_and_bump_space() {
+                            return Err(Error::new(ERR_COUNTED_REP_COMMA_UNCLOSED));
+                        }
+                        if self.char() != '}' {
+                            max = Some(self.parse_decimal()?);
+                        } else {
+                            max = None;
+                        }
+                        if self.is_done() {
+                            return Err(Error::new(ERR_COUNTED_REP_MIN_MAX_UNCLOSED));
+                        }
+                    }
+                    
+                    if self.char() != '}' {
+                        return Err(Error::new(ERR_COUNTED_REP_INVALID));
+                    }
+
+                    let mut greedy = true;
+                    if self.bump_and_bump_space() && self.char() == '?' {
+                        greedy = false;
+                        self.bump();
+                    }
+                    
+                    if self.flags().swap_greed {
+                        greedy = !greedy;
+                    }
+
+                    if max.map_or(false, |max| min > max) {
+                        return Err(Error::new(ERR_COUNTED_REP_INVALID_RANGE));
+                    }
+                    concat.push(Hir::repetition(hir::Repetition {
+                        min,
+                        max,
+                        greedy,
+                        sub,
+                    }));
+                    Ok(concat)
+                }
+                
+                fn parse_group(&self) -> Result<Option<Hir>, Error> {
+                    assert_eq!(self.char(), '(');
+                    self.bump_and_bump_space();
+                    if self.is_lookaround_prefix() {
+                        return Err(Error::new(ERR_LOOK_UNSUPPORTED));
+                    }
+                    
+                    if self.bump_if("?P<") || self.bump_if("?<") {
+                        let index = self.next_capture_index()?;
+                        let name = Some(Box::from(self.parse_capture_name()?));
+                        let sub = Box::new(self.parse_inner()?);
+                        let cap = hir::Capture { index, name, sub };
+                        Ok(Some(Hir::capture(cap)))
+                    } else if self.bump_if("?") {
+                        if self.is_done() {
+                            return Err(Error::new(ERR_UNCLOSED_GROUP_QUESTION));
+                        }
+                        let start = self.pos();
+                        *self.flags.borrow_mut() = self.parse_flags()?;
+                        let consumed = self.pos() - start;
+                        if self.char() == ')' {
+                            if consumed == 0 {
+                                return Err(Error::new(ERR_EMPTY_FLAGS));
+                            }
+                            Ok(None)
+                        } else {
+                            assert_eq!(':', self.char());
+                            self.bump();
+                            self.parse_inner().map(Some)
+                        }
+                    } else {
+                        let index = self.next_capture_index()?;
+                        let sub = Box::new(self.parse_inner()?);
+                        let cap = hir::Capture { index, name: None, sub };
+                        Ok(Some(Hir::capture(cap)))
+                    }
+                }
+                
+                fn parse_capture_name(&self) -> Result<&str, Error> {
+                    if self.is_done() {
+                        return Err(Error::new(ERR_MISSING_GROUP_NAME));
+                    }
+                    
+                    let start = self.pos();
+                    loop {
+                        if self.char() == '>' {
+                            break;
+                        }
+                        if !is_capture_char(self.char(), self.pos() == start) {
+                            return Err(Error::new(ERR_INVALID_GROUP_NAME));
+                        }
+                        if !self.bump() {
+                            break;
+                        }
+                    }
+                    
+                    let end = self.pos();
+                    if self.is_done() {
+                        return Err(Error::new(ERR_UNCLOSED_GROUP_NAME));
+                    }
+                    assert_eq!(self.char(), '>');
+                    self.bump();
+                    let name = &self.pattern()[start..end];
+                    if name.is_empty() {
+                        return Err(Error::new(ERR_EMPTY_GROUP_NAME));
+                    }
+                    self.add_capture_name(name)?;
+                    Ok(name)
+                }
+                
+                fn parse_flags(&self) -> Result<Flags, Error> {
+                    let mut flags = *self.flags.borrow();
+                    let mut negate = false;
+                    let mut last_was_negation = false;
+                    let mut seen = [false; 128];
+                    while self.char() != ':' && self.char() != ')' {
+                        if self.char() == '-' {
+                            last_was_negation = true;
+                            if negate {
+                                return Err(Error::new(ERR_FLAG_REPEATED_NEGATION));
+                            }
+                            negate = true;
+                        } else {
+                            last_was_negation = false;
+                            self.parse_flag(&mut flags, negate)?;
+                            let flag_byte = u8::try_from(self.char()).unwrap();
+                            if seen[usize::from(flag_byte)] {
+                                return Err(Error::new(ERR_FLAG_DUPLICATE));
+                            }
+                            seen[usize::from(flag_byte)] = true;
+                        }
+                        if !self.bump() {
+                            return Err(Error::new(ERR_FLAG_UNEXPECTED_EOF));
+                        }
+                    }
+                    
+                    if last_was_negation {
+                        return Err(Error::new(ERR_FLAG_DANGLING_NEGATION));
+                    }
+                    Ok(flags)
+                }
+                
+                fn parse_flag(
+                    &self,
+                    flags: &mut Flags,
+                    negate: bool,
+                ) -> Result<(), Error> {
+                    let enabled = !negate;
+                    match self.char() {
+                        'i' => flags.case_insensitive = enabled,
+                        'm' => flags.multi_line = enabled,
+                        's' => flags.dot_matches_new_line = enabled,
+                        'U' => flags.swap_greed = enabled,
+                        'R' => flags.crlf = enabled,
+                        'x' => flags.ignore_whitespace = enabled,
+                        'u' => {}
+                        _ => return Err(Error::new(ERR_FLAG_UNRECOGNIZED)),
+                    }
+                    Ok(())
+                }
+                
+                fn parse_class(&self) -> Result<Hir, Error> {
+                    assert_eq!(self.char(), '[');
+
+                    let mut union = vec![];
+                    if !self.bump_and_bump_space() {
+                        return Err(Error::new(ERR_CLASS_UNCLOSED));
+                    }
+                    
+                    let negate = if self.char() != '^' {
+                        false
+                    } else {
+                        if !self.bump_and_bump_space() {
+                            return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_NEGATION));
+                        }
+                        true
+                    };
+                    
+                    while self.char() == '-' {
+                        union.push(hir::ClassRange { start: '-', end: '-' });
+                        if !self.bump_and_bump_space() {
+                            return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_DASH));
+                        }
+                    }
+                    
+                    if union.is_empty() && self.char() == ']' {
+                        union.push(hir::ClassRange { start: ']', end: ']' });
+                        if !self.bump_and_bump_space() {
+                            return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_CLOSING));
+                        }
+                    }
+                    loop {
+                        self.bump_space();
+                        if self.is_done() {
+                            return Err(Error::new(ERR_CLASS_UNCLOSED));
+                        }
+                        match self.char() {
+                            '[' => {
+                                if let Some(class) = self.maybe_parse_posix_class() {
+                                    union.extend_from_slice(&class.ranges);
+                                    continue;
+                                }
+
+                                return Err(Error::new(ERR_CLASS_NEST_UNSUPPORTED));
+                            }
+                            ']' => {
+                                self.bump();
+                                let mut class = hir::Class::new(union);
+
+                                if self.flags().case_insensitive {
+                                    class.ascii_case_fold();
+                                }
+                                if negate {
+                                    class.negate();
+                                }
+                                return Ok(Hir::class(class));
+                            }
+                            '&' if self.peek() == Some('&') => {
+                                return Err(Error::new(
+                                    ERR_CLASS_INTERSECTION_UNSUPPORTED,
+                                ));
+                            }
+                            '-' if self.peek() == Some('-') => {
+                                return Err(Error::new(ERR_CLASS_DIFFERENCE_UNSUPPORTED));
+                            }
+                            '~' if self.peek() == Some('~') => {
+                                return Err(Error::new(
+                                    ERR_CLASS_SYMDIFFERENCE_UNSUPPORTED,
+                                ));
+                            }
+                            _ => self.parse_class_range(&mut union)?,
+                        }
+                    }
+                }
+
+                fn parse_class_range(
+                    &self,
+                    union: &mut Vec<hir::ClassRange>,
+                ) -> Result<(), Error> {
+                    let prim1 = self.parse_class_item()?;
+                    self.bump_space();
+                    if self.is_done() {
+                        return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_ITEM));
+                    }
+                    
+                    
+                    if self.char() != '-'
+                        || self.peek_space() == Some(']')
+                        || self.peek_space() == Some('-')
+                    {
+                        union.extend_from_slice(&into_class_item_ranges(prim1)?);
+                        return Ok(());
+                    }
+                    
+                    if !self.bump_and_bump_space() {
+                        return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_DASH));
+                    }
+                    
+                    let prim2 = self.parse_class_item()?;
+                    let range = hir::ClassRange {
+                        start: into_class_item_range(prim1)?,
+                        end: into_class_item_range(prim2)?,
+                    };
+                    
+                    if  range.start > range.end {
+                        return Err(Error::new(ERR_CLASS_INVALID_RANGE));
+                    }
+                    union.push(range);
+                    Ok(())
+                }
+                
+                fn parse_class_item(&self) -> Result<Hir, Error> {
+                    let ch = self.char();
+                    self.bump();
+                    if ch == '\\' {
+                        self.parse_escape()
+                    } else {
+                        Ok(Hir::char(ch))
+                    }
+                }
+                
+                fn maybe_parse_posix_class(&self) -> Option<hir::Class> {
+                    assert_eq!(self.char(), '[');
+                    
+                    let start_pos = self.pos();
+                    let start_char = self.char.get();
+                    let reset = || {
+                        self.pos.set(start_pos);
+                        self.char.set(start_char);
+                    };
+
+                    let mut negated = false;
+                    if !self.bump() || self.char() != ':' {
+                        reset();
+                        return None;
+                    }
+                    
+                    if !self.bump() {
+                        reset();
+                        return None;
+                    }
+                    
+                    if self.char() == '^' {
+                        negated = true;
+                        if !self.bump() {
+                            reset();
+                            return None;
+                        }
+                    }
+                    
+                    let name_start = self.pos();
+                    while self.char() != ':' && self.bump() {}
+                    
+                    if self.is_done() {
+                        reset();
+                        return None;
+                    }
+                    
+                    let name = &self.pattern()[name_start..self.pos()];
+                    if !self.bump_if(":]") {
+                        reset();
+                        return None;
+                    }
+                    
+                    if let Ok(ranges) = posix_class(name) {
+                        let mut class = hir::Class::new(ranges);
+                        if negated {
+                            class.negate();
+                        }
+                        return Some(class);
+                    }
+                    reset();
+                    None
+                }
+                
+                fn parse_perl_class(&self) -> Hir {
+                    let ch = self.char();
+                    self.bump();
+                    let mut class = hir::Class::new(match ch {
+                        'd' | 'D' => posix_class("digit").unwrap(),
+                        's' | 'S' => posix_class("space").unwrap(),
+                        'w' | 'W' => posix_class("word").unwrap(),
+                        unk => unreachable!("invalid Perl class \\{unk}"),
+                    });
+                    if ch.is_ascii_uppercase() {
+                        class.negate();
+                    }
+                    Hir::class(class)
+                }
+
+                fn hir_dot(&self) -> Hir {
+                    if self.flags().dot_matches_new_line {
+                        Hir::class(hir::Class::new([hir::ClassRange {
+                            start: '\x00',
+                            end: '\u{10FFFF}',
+                        }]))
+                    } else if self.flags().crlf {
+                        Hir::class(hir::Class::new([
+                            hir::ClassRange { start: '\x00', end: '\x09' },
+                            hir::ClassRange { start: '\x0B', end: '\x0C' },
+                            hir::ClassRange { start: '\x0E', end: '\u{10FFFF}' },
+                        ]))
+                    } else {
+                        Hir::class(hir::Class::new([
+                            hir::ClassRange { start: '\x00', end: '\x09' },
+                            hir::ClassRange { start: '\x0B', end: '\u{10FFFF}' },
+                        ]))
+                    }
+                }
+
+                fn hir_anchor_start(&self) -> Hir {
+                    let look = if self.flags().multi_line {
+                        if self.flags().crlf {
+                            hir::Look::StartCRLF
+                        } else {
+                            hir::Look::StartLF
+                        }
+                    } else {
+                        hir::Look::Start
+                    };
+                    Hir::look(look)
+                }
+
+                fn hir_anchor_end(&self) -> Hir {
+                    let look = if self.flags().multi_line {
+                        if self.flags().crlf {
+                            hir::Look::EndCRLF
+                        } else {
+                            hir::Look::EndLF
+                        }
+                    } else {
+                        hir::Look::End
+                    };
+                    Hir::look(look)
+                }
+
+                fn hir_char(&self, ch: char) -> Hir {
+                    if self.flags().case_insensitive {
+                        let this = hir::ClassRange { start: ch, end: ch };
+                        if let Some(folded) = this.ascii_case_fold() {
+                            return Hir::class(hir::Class::new([this, folded]));
+                        }
+                    }
+                    Hir::char(ch)
+                }
+            }
+            
+            fn check_hir_nesting(hir: &Hir, limit: u32) -> Result<(), Error> {
+                fn recurse(hir: &Hir, limit: u32, depth: u32) -> Result<(), Error> {
+                    if depth > limit {
+                        return Err(Error::new(ERR_TOO_MUCH_NESTING));
+                    }
+                    
+                    let Some(next_depth) = depth.checked_add(1) else {
+                        return Err(Error::new(ERR_TOO_MUCH_NESTING));
+                    };
+                    match *hir.kind() {
+                        HirKind::Empty
+                        | HirKind::Char(_)
+                        | HirKind::Class(_)
+                        | HirKind::Look(_) => Ok(()),
+                        HirKind::Repetition(hir::Repetition { ref sub, .. }) => {
+                            recurse(sub, limit, next_depth)
+                        }
+                        HirKind::Capture(hir::Capture { ref sub, .. }) => {
+                            recurse(sub, limit, next_depth)
+                        }
+                        HirKind::Concat(ref subs) | HirKind::Alternation(ref subs) => {
+                            for sub in subs.iter() {
+                                recurse(sub, limit, next_depth)?;
+                            }
+                            Ok(())
+                        }
+                    }
+                }
+                recurse(hir, limit, 0)
+            }
+            
+            fn into_class_item_range(hir: Hir) -> Result<char, Error> {
+                match hir.kind {
+                    HirKind::Char(ch) => Ok(ch),
+                    _ => Err(Error::new(ERR_CLASS_INVALID_RANGE_ITEM)),
+                }
+            }
+
+            fn into_class_item_ranges(
+                mut hir: Hir,
+            ) -> Result<Vec<hir::ClassRange>, Error> {
+                match core::mem::replace(&mut hir.kind, HirKind::Empty) {
+                    HirKind::Char(ch) => Ok(vec![hir::ClassRange { start: ch, end: ch }]),
+                    HirKind::Class(hir::Class { ranges }) => Ok(ranges),
+                    _ => Err(Error::new(ERR_CLASS_INVALID_ITEM)),
+                }
+            }
+            
+            fn posix_class(
+                kind: &str,
+            ) -> Result<impl Iterator<Item = hir::ClassRange>, Error> {
+                let slice: &'static [(u8, u8)] = match kind {
+                    "alnum" => &[(b'0', b'9'), (b'A', b'Z'), (b'a', b'z')],
+                    "alpha" => &[(b'A', b'Z'), (b'a', b'z')],
+                    "ascii" => &[(b'\x00', b'\x7F')],
+                    "blank" => &[(b'\t', b'\t'), (b' ', b' ')],
+                    "cntrl" => &[(b'\x00', b'\x1F'), (b'\x7F', b'\x7F')],
+                    "digit" => &[(b'0', b'9')],
+                    "graph" => &[(b'!', b'~')],
+                    "lower" => &[(b'a', b'z')],
+                    "print" => &[(b' ', b'~')],
+                    "punct" => &[(b'!', b'/'), (b':', b'@'), (b'[', b'`'), (b'{', b'~')],
+                    "space" => &[
+                        (b'\t', b'\t'),
+                        (b'\n', b'\n'),
+                        (b'\x0B', b'\x0B'),
+                        (b'\x0C', b'\x0C'),
+                        (b'\r', b'\r'),
+                        (b' ', b' '),
+                    ],
+                    "upper" => &[(b'A', b'Z')],
+                    "word" => &[(b'0', b'9'), (b'A', b'Z'), (b'_', b'_'), (b'a', b'z')],
+                    "xdigit" => &[(b'0', b'9'), (b'A', b'F'), (b'a', b'f')],
+                    _ => return Err(Error::new(ERR_POSIX_CLASS_UNRECOGNIZED)),
+                };
+                Ok(slice.iter().map(|&(start, end)| hir::ClassRange {
+                    start: char::from(start),
+                    end: char::from(end),
+                }))
+            }
+            
+            fn is_hex(c: char) -> bool {
+                ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
+            }
+
+            
+            fn is_capture_char(c: char, first: bool) -> bool {
+                if first {
+                    c == '_' || c.is_alphabetic()
+                } else {
+                    c == '_' || c == '.' || c == '[' || c == ']' || c.is_alphanumeric()
+                }
+            }
+
         }
         
         pub fn escape(pattern: &str) -> String
@@ -196,7 +1288,7 @@ pub mod regex
             
             for ch in pattern.chars()
             {
-                if is_meta_character(ch) { buf.push('\\'); }
+                if crate::is::meta_character(ch) { buf.push('\\'); }
                 
                 buf.push(ch);
             }
@@ -434,7 +1526,7 @@ pub mod regex
         {
             fn subs(&self) -> &[Hir] 
             {
-                use ::slice::from_ref;
+                use crate::slice::from_ref;
 
                 match *self 
                 {
@@ -569,8 +1661,8 @@ pub mod regex
             {
                 if !(ClassRange { start: 'a', end: 'z' }).is_intersection_empty(self)
                 {
-                    let start = ::cmp::max(self.start, 'a');
-                    let end = ::cmp::min(self.end, 'z');
+                    let start = crate::cmp::max(self.start, 'a');
+                    let end = crate::cmp::min(self.end, 'z');
                     
                     return Some(ClassRange 
                     {
@@ -581,8 +1673,8 @@ pub mod regex
                 
                 if !(ClassRange { start: 'A', end: 'Z' }).is_intersection_empty(self) 
                 {
-                    let start = ::cmp::max(self.start, 'A');
-                    let end = ::cmp::min(self.end, 'Z');
+                    let start = crate::cmp::max(self.start, 'A');
+                    let end = crate::cmp::min(self.end, 'Z');
                     
                     return Some(ClassRange 
                     {
@@ -598,8 +1690,8 @@ pub mod regex
             {
                 if !self.is_contiguous(other) { return None; }
                 
-                let start = ::cmp::min(self.start, other.start);
-                let end = ::cmp::max(self.end, other.end);
+                let start = crate::cmp::min(self.start, other.start);
+                let end = crate::cmp::max(self.end, other.end);
                 Some(ClassRange { start, end })
             }
             
@@ -607,14 +1699,14 @@ pub mod regex
             {
                 let (s1, e1) = (u32::from(self.start), u32::from(self.end));
                 let (s2, e2) = (u32::from(other.start), u32::from(other.end));
-                ::cmp::max(s1, s2) <= ::cmp::min(e1, e2).saturating_add(1)
+                crate::cmp::max(s1, s2) <=  crate::cmp::min(e1, e2).saturating_add(1)
             }
             
             fn is_intersection_empty(&self, other: &ClassRange) -> bool 
             {
                 let (s1, e1) = (self.start, self.end);
                 let (s2, e2) = (other.start, other.end);
-                ::cmp::max(s1, s2) > ::cmp::min(e1, e2)
+                crate::cmp::max(s1, s2) >  crate::cmp::min(e1, e2)
             }
         }
         
@@ -666,51 +1758,41 @@ pub mod regex
                     
                     Word => 
                     {
-                        let word_before =
-                            at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                        let word_after =
-                            at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                        let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                        let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                         word_before != word_after
                     }
                     
                     WordNegate => 
                     {
-                        let word_before =
-                            at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                        let word_after =
-                            at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                        let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                        let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                         word_before == word_after
                     }
                     
                     WordStart => 
                     {
-                        let word_before =
-                            at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                        let word_after =
-                            at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                        let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                        let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                         !word_before && word_after
                     }
                     
                     WordEnd => 
                     {
-                        let word_before =
-                            at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                        let word_after =
-                            at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                        let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                        let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                         word_before && !word_after
                     }
                     
                     WordStartHalf => 
                     {
-                        let word_before =
-                            at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                        let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
                         !word_before
                     }
                     
                     WordEndHalf => 
                     {
-                        let word_after =
-                            at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                        let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                         !word_after
                     }
                 }
@@ -752,7 +1834,7 @@ pub mod regex
         {
             fn drop(&mut self)
             {
-                use ::mem;
+                use crate::mem;
 
                 match *self.kind()
                 {
@@ -780,12 +1862,13 @@ pub mod regex
             }
         }
     }
+    pub use self::hir::*;
     
     pub mod int
     {
         /*!
         */
-        use ::
+        use crate::
         {
             num::{ NonZeroUsize },
             *,
@@ -819,9 +1902,9 @@ pub mod regex
             }
         }
         
-        impl ::fmt::Debug for NonMaxUsize 
+        impl crate::fmt::Debug for NonMaxUsize 
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+            fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
                 write!(f, "{:?}", self.get())
             }
         }
@@ -831,7 +1914,7 @@ pub mod regex
     {
         /*!
         Routines for interpolating capture group references. */
-        use ::
+        use crate::
         {
             string::{ String },
             *,
@@ -931,14 +2014,14 @@ pub mod regex
             
             let mut cap_end = i;
             
-            while rep.get(cap_end).copied().map_or(false, is_valid_cap_letter)
+            while rep.get(cap_end).copied().map_or(false, crate::is::valid_cap_letter)
             {
                 cap_end += 1;
             }
             
             if cap_end == i { return None; }
             
-            let cap = ::str::from_utf8(&rep[i..cap_end]).expect("valid UTF-8 capture name");
+            let cap = crate::str::from_utf8(&rep[i..cap_end]).expect("valid UTF-8 capture name");
             
             Some(CaptureRef
             {
@@ -964,7 +2047,7 @@ pub mod regex
                 return None;
             }
             
-            let cap = match ::str::from_utf8(&rep[start..i]) {
+            let cap = match crate::str::from_utf8(&rep[start..i]) {
                 Err(_) => return None,
                 Ok(cap) => cap,
             };
@@ -985,12 +2068,23 @@ pub mod regex
     {
         /*!
         */
-        use ::
+        use crate::
         {
+            cell::{ RefCell },
+            mem::{ size_of },
+            regex::
+            {
+                error::Error,
+                hir::{self, Hir, HirKind},
+                int::U32,
+            },
+            string::{String},
+            sync::{Arc},
+            vec::{self, Vec},
             *,
         };
         /*
-        use ::{cell::RefCell, mem::size_of};
+        use crate::{cell::RefCell, mem::size_of};
 
         use alloc::{string::String, sync::Arc, vec, vec::Vec};
         
@@ -1060,9 +2154,9 @@ pub mod regex
             }
         }
 
-        impl ::fmt::Debug for NFA 
+        impl crate::fmt::Debug for NFA 
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result 
+            fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result 
             {
                 writeln!(f, "NFA(")?;
                 writeln!(f, "pattern: {}", self.pattern)?;
@@ -1080,7 +2174,7 @@ pub mod regex
         #[derive(Clone, Debug)]
         pub struct CaptureNames<'a>
         {
-            it: ::slice::Iter<'a, Option<Arc<str>>>,
+            it: slice::Iter<'a, Option<Arc<str>>>,
         }
 
         impl<'a> Iterator for CaptureNames<'a>
@@ -1116,13 +2210,13 @@ pub mod regex
             pub fn iter_splits<'a>( splits: &'a [StateID], reverse: bool ) -> impl Iterator<Item = StateID> + 'a
             {
                 let mut it = splits.iter();
-                ::iter::from_fn(move || { if reverse { it.next_back() } else { it.next() }.copied() })
+                iter::from_fn(move || { if reverse { it.next_back() } else { it.next() }.copied() })
             }
         }
 
-        impl ::fmt::Debug for State 
+        impl crate::fmt::Debug for State 
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result 
+            fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result 
             {
                 match *self
                 {
@@ -1162,7 +2256,7 @@ pub mod regex
             }
         }
         
-        type CaptureNameMap = ::collections::HashMap<Arc<str>, u32>;
+        type CaptureNameMap = crate::collections::HashMap<Arc<str>, u32>;
 
         #[derive(Debug)]
         struct Compiler
@@ -1496,21 +2590,20 @@ pub mod regex
     {
         /*!
         */
-        use ::
+        use crate::
         {
+            regex::
+            {
+                int::{NonMaxUsize, U32},
+                nfa::{State, StateID, NFA},
+                pool::CachePoolGuard,
+                utf8,
+            },
+            vec::{ self, Vec },
             *,
         };
         /*
-        use alloc::{vec, vec::Vec};
-
-        use crate::{
-            int::{NonMaxUsize, U32},
-            nfa::{State, StateID, NFA},
-            pool::CachePoolGuard,
-            utf8,
-        };
         */
-        
         #[derive(Clone, Debug)]
         pub struct PikeVM 
         {
@@ -1563,11 +2656,11 @@ pub mod regex
                 
                 assert!
                 (
-                    haystack.len() < ::usize::MAX,
+                    haystack.len() < crate::usize::MAX,
                     "byte slice lengths must be less than usize MAX",
                 );
 
-                let Cache { ref mut stack, ref mut curr, ref mut next } = cache;
+                let Cache { stack, curr,  next } = cache;
                 let start_id = self.nfa().start();
                 let anchored = self.nfa().is_start_anchored();
                 let mut matched = false;
@@ -1589,6 +2682,7 @@ pub mod regex
                             stack, slots, curr, haystack, at, start_id,
                         );
                     }
+                    
                     let (ch, len) = utf8::decode_lossy(&haystack[at..]);
                     if self.nexts(stack, curr, next, haystack, at, ch, len, slots) {
                         matched = true;
@@ -1596,7 +2690,7 @@ pub mod regex
                                                                     if (earliest && matched) || len == 0 {
                         break;
                     }
-                    ::mem::swap(curr, next);
+                    crate::mem::swap(curr, next);
                     next.set.clear();
                     at += len;
                 }
@@ -1824,7 +2918,7 @@ pub mod regex
                 assert!(m.0 >= m.1);
                 if Some(m.1) == self.last_match_end {
                     let len =
-                        ::cmp::max(1, utf8::decode(&self.haystack[self.at..]).1);
+                         crate::cmp::max(1, utf8::decode(&self.haystack[self.at..]).1);
                     self.at = self.at.checked_add(len).unwrap();
                     if !self.pikevm.search(
                         &mut self.cache,
@@ -2041,9 +3135,9 @@ pub mod regex
             }
         }
 
-        impl ::fmt::Debug for SparseSet 
+        impl crate::fmt::Debug for SparseSet 
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+            fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
                 let elements: Vec<StateID> = self.iter().collect();
                 f.debug_tuple("SparseSet").field(&elements).finish()
             }
@@ -2067,19 +3161,16 @@ pub mod regex
     {
         /*!
         */
-        use ::
+        use crate::
         {
+            boxed::{ Box },
+            panic::{RefUnwindSafe, UnwindSafe},
+            regex::{ pikevm },
+            sync::{Mutex},
+            vec::{ self, Vec },
             *,
         };
         /*
-        use ::panic::{RefUnwindSafe, UnwindSafe};
-
-        use alloc::{boxed::Box, vec, vec::Vec};
-        
-        use crate::pikevm;
-        
-        //
-        use std::sync::Mutex;
         */
         pub type CachePool = Pool<pikevm::Cache, CachePoolFn>;
 
@@ -2122,9 +3213,9 @@ pub mod regex
             }
         }
 
-        impl<T: ::fmt::Debug, F> ::fmt::Debug for Pool<T, F>
+        impl<T: crate::fmt::Debug, F> crate::fmt::Debug for Pool<T, F>
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result {
+            fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result {
                 f.debug_struct("Pool").field("stack", &self.stack).finish()
             }
         }
@@ -2144,7 +3235,7 @@ pub mod regex
             }
         }
 
-        impl<'a, T: Send, F: Fn() -> T> ::ops::Deref for PoolGuard<'a, T, F>
+        impl<'a, T: Send, F: Fn() -> T> crate::ops::Deref for PoolGuard<'a, T, F>
         {
             type Target = T;
 
@@ -2153,17 +3244,17 @@ pub mod regex
             }
         }
 
-        impl<'a, T: Send, F: Fn() -> T> ::ops::DerefMut for PoolGuard<'a, T, F>
+        impl<'a, T: Send, F: Fn() -> T> crate::ops::DerefMut for PoolGuard<'a, T, F>
         {
             fn deref_mut(&mut self) -> &mut T {
                 self.value.as_deref_mut().unwrap()
             }
         }
 
-        impl<'a, T: Send + ::fmt::Debug, F: Fn() -> T> ::fmt::Debug
+        impl<'a, T: Send + crate::fmt::Debug, F: Fn() -> T> crate::fmt::Debug
         for PoolGuard<'a, T, F>
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+            fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
                 f.debug_struct("PoolGuard")
                     .field("pool", &self.pool)
                     .field("value", &self.value)
@@ -2176,25 +3267,26 @@ pub mod regex
     {
         /*!
         */
-        use ::
+        use crate::
         {
+            borrow::{ Cow },
+            boxed::{ Box },
+            regex::
+            {
+                error::Error,
+                hir::{self, Hir},
+                int::NonMaxUsize,
+                interpolate,
+                nfa::{self, NFA},
+                pikevm::{self, Cache, PikeVM},
+                pool::CachePool,
+            },
+            string::{ String, ToString },
+            sync::{ Arc },
+            vec::{self, Vec},
             *,
         };
         /*
-        use alloc::{
-            borrow::Cow, boxed::Box, string::String, string::ToString, sync::Arc, vec,
-            vec::Vec,
-        };
-        
-        use crate::{
-            error::Error,
-            hir::{self, Hir},
-            int::NonMaxUsize,
-            interpolate,
-            nfa::{self, NFA},
-            pikevm::{self, Cache, PikeVM},
-            pool::CachePool,
-        };
         */
         pub struct Regex 
         {
@@ -2216,21 +3308,21 @@ pub mod regex
             }
         }
 
-        impl ::fmt::Display for Regex 
+        impl crate::fmt::Display for Regex 
         {
-                fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result {
+                fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result {
                 write!(f, "{}", self.as_str())
             }
         }
 
-        impl ::fmt::Debug for Regex 
+        impl crate::fmt::Debug for Regex 
         {
-                fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result {
+                fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result {
                 f.debug_tuple("Regex").field(&self.as_str()).finish()
             }
         }
 
-        impl ::str::FromStr for Regex 
+        impl crate::str::FromStr for Regex 
         {
             type Err = Error;
             
@@ -2267,14 +3359,9 @@ pub mod regex
                 RegexBuilder::new(pattern).build()
             }
             
-            #[inline] pub fn is_match(&self, haystack: &str) -> bool {
-                self.is_match_at(haystack, 0)
-            }
+            #[inline] pub fn is_match(&self, haystack: &str) -> bool  { self.is_match_at( haystack, 0 ) }
             
-            #[inline] pub fn find<'h>(&self, haystack: &'h str) -> Option<Match<'h>>
-            {
-                self.find_at(haystack, 0)
-            }
+            #[inline] pub fn find<'h>(&self, haystack: &'h str) -> Option<Match<'h>> { self.find_at( haystack, 0 ) }
             
             #[inline] pub fn find_iter<'r, 'h>(&'r self, haystack: &'h str) -> Matches<'r, 'h>
             {
@@ -2284,10 +3371,7 @@ pub mod regex
                 }
             }
             
-            #[inline] pub fn captures<'h>(&self, haystack: &'h str) -> Option<Captures<'h>>
-            {
-                self.captures_at(haystack, 0)
-            }
+            #[inline] pub fn captures<'h>(&self, haystack: &'h str) -> Option<Captures<'h>> { self.captures_at( haystack, 0 ) }
             
             #[inline] pub fn captures_iter<'r, 'h>(
                 &'r self,
@@ -2315,17 +3399,9 @@ pub mod regex
                 SplitN { splits: self.split(haystack), limit }
             }
             
-            #[inline] pub fn replace<'h, R: Replacer>( &self,
-                haystack: &'h str, rep: R ) -> Cow<'h, str>
-            {
-                self.replacen(haystack, 1, rep)
-            }
+            #[inline] pub fn replace<'h, R: Replacer>( &self, haystack: &'h str, rep: R ) -> Cow<'h, str> { self.replacen( haystack, 1, rep ) }
             
-            #[inline] pub fn replace_all<'h, R: Replacer>( &self,
-                haystack: &'h str, rep: R ) -> Cow<'h, str>
-            {
-                self.replacen(haystack, 0, rep)
-            }
+            #[inline] pub fn replace_all<'h, R: Replacer>( &self, haystack: &'h str, rep: R ) -> Cow<'h, str> { self.replacen( haystack, 0, rep ) }
             
             #[inline] pub fn replacen<'h, R: Replacer>( &self,
                 haystack: &'h str,
@@ -2338,6 +3414,7 @@ pub mod regex
                     if it.peek().is_none() {
                         return Cow::Borrowed(haystack);
                     }
+                    
                     let mut new = String::with_capacity(haystack.len());
                     let mut last_match = 0;
                     for (i, m) in it {
@@ -2372,10 +3449,7 @@ pub mod regex
         
         impl Regex 
         {
-            #[inline] pub fn shortest_match(&self, haystack: &str) -> Option<usize>
-            {
-                self.shortest_match_at(haystack, 0)
-            }
+            #[inline] pub fn shortest_match(&self, haystack: &str) -> Option<usize> { self.shortest_match_at( haystack, 0 ) }
             
             #[inline] pub fn shortest_match_at( &self,
                 haystack: &str,
@@ -2457,10 +3531,7 @@ pub mod regex
             
             #[inline] pub fn captures_read<'h>( &self,
             locs: &mut CaptureLocations,
-            haystack: &'h str ) -> Option<Match<'h>>
-            {
-                self.captures_read_at(locs, haystack, 0)
-            }
+            haystack: &'h str ) -> Option<Match<'h>> { self.captures_read_at( locs, haystack, 0 ) }
             
             #[inline] pub fn captures_read_at<'h>( &self,
             locs: &mut CaptureLocations,
@@ -2529,11 +3600,11 @@ pub mod regex
             #[inline] pub fn end(&self) -> usize { self.end }
             #[inline] pub fn is_empty(&self) -> bool { self.start == self.end }
             #[inline] pub fn len(&self) -> usize { self.end - self.start }
-            #[inline] pub fn range(&self) -> ::ops::Range<usize> { self.start..self.end }
+            #[inline] pub fn range(&self) -> crate::ops::Range<usize> { self.start..self.end }
             #[inline] pub fn as_str(&self) -> &'h str { &self.haystack[self.range()] }
         }
 
-        impl<'h> ::fmt::Debug for Match<'h>
+        impl<'h> crate::fmt::Debug for Match<'h>
         {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
             {
@@ -2550,9 +3621,9 @@ pub mod regex
             fn from(m: Match<'h>) -> &'h str { m.as_str() }
         }
 
-        impl<'h> From<Match<'h>> for ::ops::Range<usize>
+        impl<'h> From<Match<'h>> for crate::ops::Range<usize>
         {
-            fn from(m: Match<'h>) -> ::ops::Range<usize> { m.range() }
+            fn from(m: Match<'h>) -> crate::ops::Range<usize> { m.range() }
         }
 
         pub struct Captures<'h>
@@ -2624,18 +3695,18 @@ pub mod regex
             #[inline] pub fn len(&self) -> usize { self.pikevm.nfa().group_len() }
         }
 
-        impl<'h> ::fmt::Debug for Captures<'h>
+        impl<'h> crate::fmt::Debug for Captures<'h>
         {
-            fn fmt(&self, f: &mut ::fmt::Formatter<'_>) -> ::fmt::Result 
+            fn fmt(&self, f: &mut crate::fmt::Formatter<'_>) -> crate::fmt::Result 
             {
                 struct CapturesDebugMap<'a>
                 {
                     caps: &'a Captures<'a>,
                 }
 
-                impl<'a> ::fmt::Debug for CapturesDebugMap<'a>
+                impl<'a> crate::fmt::Debug for CapturesDebugMap<'a>
                 {
-                    fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result
+                    fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result
                     {
                         let mut map = f.debug_map();
                         let names = self.caps.pikevm.nfa().capture_names();
@@ -2652,9 +3723,9 @@ pub mod regex
 
                 struct Key<'a>(usize, Option<&'a str>);
 
-                impl<'a> ::fmt::Debug for Key<'a>
+                impl<'a> crate::fmt::Debug for Key<'a>
                 {
-                    fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+                    fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
                         write!(f, "{}", self.0)?;
                         if let Some(name) = self.1 {
                             write!(f, "/{name:?}")?;
@@ -2665,9 +3736,9 @@ pub mod regex
 
                 struct Value<'a>(Match<'a>);
 
-                impl<'a> ::fmt::Debug for Value<'a>
+                impl<'a> crate::fmt::Debug for Value<'a>
                 {
-                    fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+                    fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
                         write!(
                             f,
                             "{}..{}/{:?}",
@@ -2684,7 +3755,7 @@ pub mod regex
             }
         }
         
-        impl<'h> ::ops::Index<usize> for Captures<'h>
+        impl<'h> crate::ops::Index<usize> for Captures<'h>
         {
             type Output = str;
             fn index(&self, i: usize) -> &str 
@@ -2695,7 +3766,7 @@ pub mod regex
             }
         }
         
-        impl<'h, 'n> ::ops::Index<&'n str> for Captures<'h>
+        impl<'h, 'n> crate::ops::Index<&'n str> for Captures<'h>
         {
             type Output = str;
 
@@ -2740,7 +3811,7 @@ pub mod regex
             #[inline] fn count(self) -> usize { self.it.count() }
         }
 
-        impl<'r, 'h> ::iter::FusedIterator for Matches<'r, 'h> {}
+        impl<'r, 'h> crate::iter::FusedIterator for Matches<'r, 'h> {}
         
         #[derive(Debug)]
         pub struct CaptureMatches<'r, 'h>
@@ -2767,7 +3838,7 @@ pub mod regex
             #[inline] fn count(self) -> usize { self.it.count() }
         }
 
-        impl<'r, 'h> ::iter::FusedIterator for CaptureMatches<'r, 'h> {}
+        impl<'r, 'h> crate::iter::FusedIterator for CaptureMatches<'r, 'h> {}
         
         #[derive(Debug)]
         pub struct Split<'r, 'h>
@@ -2807,7 +3878,7 @@ pub mod regex
             }
         }
 
-        impl<'r, 't> ::iter::FusedIterator for Split<'r, 't> {}
+        impl<'r, 't> crate::iter::FusedIterator for Split<'r, 't> {}
         
         #[derive(Debug)]
         pub struct SplitN<'r, 'h>
@@ -2844,7 +3915,7 @@ pub mod regex
             }
         }
 
-        impl<'r, 't> ::iter::FusedIterator for SplitN<'r, 't> {}
+        impl<'r, 't> crate::iter::FusedIterator for SplitN<'r, 't> {}
         
         #[derive(Clone, Debug)]
         pub struct CaptureNames<'r>(nfa::CaptureNames<'r>);
@@ -2869,13 +3940,13 @@ pub mod regex
 
         impl<'r> ExactSizeIterator for CaptureNames<'r> {}
 
-        impl<'r> ::iter::FusedIterator for CaptureNames<'r> {}
+        impl<'r> crate::iter::FusedIterator for CaptureNames<'r> {}
         
         #[derive(Clone, Debug)]
         pub struct SubCaptureMatches<'c, 'h>
         {
             caps: &'c Captures<'h>,
-            it: ::iter::Enumerate<nfa::CaptureNames<'c>>,
+            it: crate::iter::Enumerate<nfa::CaptureNames<'c>>,
         }
 
         impl<'c, 'h> Iterator for SubCaptureMatches<'c, 'h>
@@ -2899,7 +3970,7 @@ pub mod regex
 
         impl<'c, 'h> ExactSizeIterator for SubCaptureMatches<'c, 'h> {}
 
-        impl<'c, 'h> ::iter::FusedIterator for SubCaptureMatches<'c, 'h> {}
+        impl<'c, 'h> crate::iter::FusedIterator for SubCaptureMatches<'c, 'h> {}
         
         pub trait Replacer 
         {
@@ -3065,12 +4136,13 @@ pub mod regex
             }
         }
     }
-    
+    pub use self::string::*;
+
     pub mod utf8
     {
         /*!
         */
-        use ::
+        use crate::
         {
             *,
         };
@@ -3147,7 +4219,7 @@ pub mod regex
                                             let ch = char::from_u32(cp).unwrap();
                     return (Some(ch), i);
                 } else if state == REJECT {
-                                return (None, ::cmp::max(1, i.saturating_sub(1)));
+                                return (None,  crate::cmp::max(1, i.saturating_sub(1)));
                 }
             }
 
@@ -3173,17 +4245,35 @@ pub mod slice
     pub use std::slice::{*};
 }
 
+pub mod str
+{
+    pub use std::str::{*};
+}
+
 pub mod string
 {
     pub use std::string::{*};
+}
+
+pub mod sync
+{
+    pub use std::sync::{ atomic as _, *};
+
+    pub mod atomic
+    {
+        pub use std::sync::atomic::{*};
+    }
+}
+
+pub mod usize
+{
+    pub use std::usize::{*};
 }
 
 pub mod vec
 {
     pub use std::vec::{*};
 }
-
-
 
 /*
 create
@@ -3219,7 +4309,6 @@ unsafe fn read_module_line( from:&crate::path::Path ) -> Result<(), Box<dyn crat
         let file = fs::File::open( from ).expect("File not found");
         let buffer = crate::io::BufReader::new(file);
         let mut lines:Vec<String> = vec![];
-        //let lined:Vec<String> = BUFFER.clone();
 
         for line in buffer.lines()
         {
@@ -3228,6 +4317,7 @@ unsafe fn read_module_line( from:&crate::path::Path ) -> Result<(), Box<dyn crat
 
         lines.append(  &mut BUFFER );
         BUFFER = lines.clone();
+        MODULES.push( from.to_string_lossy().into_owned() );
 
         return Ok(());
     }
@@ -3250,6 +4340,17 @@ unsafe fn create_module() -> Result<(), Box<dyn crate::error::Error>>
                         true if line.ends_with( r#".rs"]"# ) =>
                         {
                             println!("Found Module File Attribute( {} )", line);
+
+                            let re = crate::regex::Regex::new
+                            (
+                                r#"#\[path\s?=\s?"(.+){1}"\]"#
+                            )?;
+
+                            let caps = re.captures( r#"#[path = "de/mod.rs"]"# ).unwrap();
+                            let from = caps.get(1).unwrap().as_str();
+                            //println!( "{:?}", caps.get(1).unwrap().as_str() );
+                            println!( "{:?}", CURRENT_PATH );
+                            let buffer = read_module_line( crate::path::Path::new( from ) );
                         }
 
                         _  =>
@@ -3290,6 +4391,22 @@ unsafe fn domain() -> Result<(), Box<dyn crate::error::Error>>
 {
     unsafe
     {
+        /*
+        use crate::regex::Regex;
+
+        let re = Regex::new(r"(?x)
+(?P<year>\d{4})  # the year
+-
+(?P<month>\d{2}) # the month
+-
+(?P<day>\d{2})   # the day
+").unwrap();
+
+        let caps = re.captures("2010-03-14").unwrap();
+        assert_eq!("2010", &caps["year"]);
+        assert_eq!("03", &caps["month"]);
+        assert_eq!("14", &caps["day"]); */
+
         let arguments = crate::env::args().skip(1).collect::<Vec<String>>();
 
         match arguments.len()
@@ -3361,6 +4478,16 @@ usage | mod from <input-file> to <output-file>"#
                                         {
                                             if INPUT_FROM.is_none()
                                             {
+                                                let mut arg:Vec<_> = argument.split('\\').collect();
+                                                match arg.len()
+                                                {
+                                                    0 | 1 => {}
+                                                    _ =>
+                                                    {
+                                                        CURRENT_PATH = Some( format!( r#"{}\{}"#, CURRENT_PATH.clone().unwrap(), arg[0] ) );
+                                                    }
+                                                }
+
                                                 INPUT_FROM = Some(argument.clone());
                                                 println!( r#"INPUT_FROM( {:?} )"#, INPUT_FROM )
                                             }
