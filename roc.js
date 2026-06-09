@@ -1,4 +1,70 @@
+// Override XMLHttpRequest.open to send cookies with cross-origin requests.
+      XMLHttpRequest.prototype.originalOpen = XMLHttpRequest.prototype.open;
+      const newOpen = function(_, url) {
+        const original = this.originalOpen.apply(this, arguments);
+        const domain = getDomainFromUrl(url);
+        if (domain && domain.endsWith(unity_config.domain)) {
+          // Send cookies with cross-origin requests (for browser session).
+          this.withCredentials = true;
+        }
+        return original;
+      }
+      XMLHttpRequest.prototype.open = newOpen;
 
+      let publicUnityInstance = null;
+      let settingsUrl = null;
+
+      loadUnityFramework();
+
+      function loadUnityFramework() {
+        LoadingProcess("load-unity-framework");
+
+        const bundlesUrl = unity_config.cdn_url + "bundles/WebGL";
+        const buildUrl = unity_config.cdn_url + "Build";
+
+        const loaderUrl = buildUrl + "/0fcde5d23a8a6498f7df4e3fc39e7604.loader.js";
+        const config = {
+          dataUrl: buildUrl + "/d7da4ef4982940f264affb713f62d1d3.data",
+          frameworkUrl: buildUrl + "/a747cb537a6f547b04b32eefa6e1e5ae.framework.js",
+          codeUrl: buildUrl + "/52f3de6589df07913314510dca611732.wasm",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "InnoGames GmbH",
+          productName: "Rise of Cultures",
+          productVersion: clientVersion,
+        };
+        settingsUrl = bundlesUrl + "/settings_2026.06.01.12.40.05.json";
+
+        const container = document.querySelector("#unity-container");
+        const canvas = document.querySelector("#unity-canvas");
+        const loadingCover = document.querySelector("#loading-cover");
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          container.className = "unity-mobile";
+          config.devicePixelRatio = 1;
+        }
+        LoadingProcess("update-background");
+        loadingCover.style.display = "";
+
+        LoadingProcess("prepare-script-container");
+        const script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+          LoadingProcess("script-container-create-unity-instance");
+          createUnityInstance(canvas, config, (progress) => {
+            //LoadingProcess("script-container-create-unity-instance-progress");
+          }).then((unityInstance) => {
+            LoadingProcess("script-container-create-unity-instance-created");
+            loadingCover.style.display = "none";
+            publicUnityInstance = unityInstance;
+          }).catch((message) => {
+            LoadingProcess("script-container-create-unity-instance-failed");
+            ReportError(message);
+            alert(message);
+          });
+        };
+        LoadingProcess("append-script-container");
+        document.body.appendChild(script);
+      }
 
 function createUnityInstance(t,n,d)
 {
