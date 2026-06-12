@@ -17,6 +17,15 @@ pub static mut INSTANCE:Option<client::Instance> = None;
 // let settingsUrl = null;
 pub static mut SETTINGS:Option<String> = None;
 
+pub mod callbacks
+{
+    #[derive(Copy, Clone, Debug)]
+    pub struct Callback
+    {
+
+    }
+}
+
 pub mod client
 {
     pub const VERSION:&str = "1.139.3";
@@ -153,6 +162,11 @@ pub mod device
             }
         }
 
+        pub fn read_brand( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
         pub fn read_browser( &mut self ) -> Result<(), ()>
         {
             Ok( () )
@@ -174,6 +188,12 @@ pub mod device
         }
 
         pub fn read_language_code( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        
+
+        pub fn update_browser_details( &mut self ) -> Result<(), ()>
         {
             Ok( () )
         }
@@ -234,6 +254,72 @@ pub mod error
         {
             String::new()
         }
+    }
+}
+
+pub mod events
+{
+    use crate::handles::Handler;
+    use crate::payments::Purchase;
+    use crate::callbacks::Callback;
+    
+    pub struct IFrameEventData
+    {
+        pub name:String,
+        pub data:String,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct EventListener
+    {
+        pub shopOpenedSuccessfully:bool,
+        pub callbacks:Vec<Callback>,
+        pub currentPaymentPurchase:Option<Purchase>,
+        pub receivedPaymentResponse:bool,
+        pub purchaseWasSuccessful:bool,
+        pub messageHandler:Handler
+    }
+
+    impl EventListener
+    {
+        pub fn initialize( &mut self, callbacks:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn update_current_purchase( &mut self, paymentPurchase:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn enable( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn disable( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn reset( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn listen( &mut self, event:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+}
+
+pub mod handles
+{
+    #[derive(Copy, Clone, Debug)]
+    pub struct Handler
+    {
+
     }
 }
 
@@ -447,6 +533,50 @@ pub mod payments
         pub fn emit_json( &self ) -> String
         {
             String::new()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Configuration
+    {
+        pub Environment:(),
+        pub PlayerId:(),
+        pub GameName:(),
+        pub Market:(),
+        pub WorldId:(),
+        pub UserAgent:(),
+        pub MarketReferrer:(),
+        pub ShouldRequestSubscriptions:(),
+        pub TimeoutInMs:(),
+    }
+
+    impl Configuration
+    {
+        pub fn new
+        (
+            Environment:(),
+            PlayerId:(),
+            GameName:(),
+            Market:(),
+            WorldId:(),
+            UserAgent:(),
+            MarketReferrer:(),
+            ShouldRequestSubscriptions:(),
+            TimeoutInMs:(),
+        ) -> Self
+        {
+            Self
+            {
+                Environment,
+                PlayerId,
+                GameName,
+                Market,
+                WorldId,
+                UserAgent,
+                MarketReferrer,
+                ShouldRequestSubscriptions,
+                TimeoutInMs,
+            }
         }
     }
 }
@@ -833,7 +963,6 @@ pub unsafe fn domain() -> ()
         println!("Error: {}", err);
         Err(err)
         });
-
         /*
             var unity_config = 
             {
@@ -844,7 +973,6 @@ pub unsafe fn domain() -> ()
                 master_url: 'https://am0.riseofcultures.com'
             };
         */
-
         let config = configuration::Configuration::new
         (
             ".riseofcultures.com",
