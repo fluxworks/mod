@@ -118,6 +118,68 @@ pub mod database
 
 }
 
+pub mod device
+{
+    pub struct Metadata
+    {
+        pub browser:(),
+        pub version:(),
+        pub operatingSystem:(),
+        pub deviceBrand:(),
+        pub operatingSystemLanguage:(),
+        pub languageCode:(),
+    }
+
+    impl Metadata
+    {
+        pub const fn new
+        (
+            browser:(),
+            version:(),
+            operatingSystem:(),
+            deviceBrand:(),
+            operatingSystemLanguage:(),
+            languageCode:(),
+        ) -> Self
+        {
+            Self
+            {
+                browser,
+                version,
+                operatingSystem,
+                deviceBrand,
+                operatingSystemLanguage,
+                languageCode,
+            }
+        }
+
+        pub fn read_browser( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn read_version( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn read_os( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn read_language( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+
+        pub fn read_language_code( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+}
+
 pub mod error
 {
     pub use std::error::{ * };
@@ -307,20 +369,85 @@ pub mod payments
     #[derive( Copy, Clone, Debug )]
     pub struct Service
     {
-        pub iFrameId,
-        pub callbacks,
-        pub paymentConfig,
-        pub eventListener,
-        pub currentPurchase,
-        pub iFrame,
-        pub validationTimeout,
-        pub shopWindowClosedHandler,
-        pub purchaseSubmittedToWalletHandler,
+        pub iFrameId:(),
+        pub callbacks:(),
+        pub paymentConfig:(),
+        pub eventListener:(),
+        pub currentPurchase:(),
+        pub iFrame:(),
+        pub validationTimeout:(),
+        pub shopWindowClosedHandler:(),
+        pub purchaseSubmittedToWalletHandler:(),
     }
-
+    
     impl Service
     {
+        pub const fn new
+        ( 
+            iFrameId:(),
+            callbacks:(),
+            paymentConfig:(),
+            eventListener:(),
+            currentPurchase:(),
+            iFrame:(),
+            validationTimeout:(),
+            shopWindowClosedHandler:(),
+            purchaseSubmittedToWalletHandler:(),
+        ) -> Self
+        {
+            Self
+            {
+                iFrameId,
+                callbacks,
+                paymentConfig,
+                eventListener,
+                currentPurchase,
+                iFrame,
+                validationTimeout,
+                shopWindowClosedHandler,
+                purchaseSubmittedToWalletHandler,
+            }
+        }
 
+        pub fn initialize( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn connect( &mut self, config:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn purchase( &mut self, payment:(), shop:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn open_frame( &mut self, parent:(), url:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn close_frame( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn validate_frame( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+
+        pub fn cancel_validate_frame( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        
+        pub fn emit_json( &self ) -> String
+        {
+            String::new()
+        }
     }
 }
 
@@ -740,3 +867,4 @@ pub fn main()
         let _ = domain();
     }
 }
+// 870
