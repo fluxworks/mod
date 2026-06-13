@@ -52,6 +52,16 @@ pub mod callbacks
         {
             Ok(())
         }
+        // function ExitStatus(status)
+        pub fn exit( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _JS_CallAsLongAsNoExceptionsSeen(cb)
+        pub fn call( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
     }
 }
 
@@ -110,6 +120,31 @@ pub mod client
         }
         // function receiveInstance(instance, module)
         pub fn receive( &mut self, module:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function callRuntimeCallbacks(callbacks)
+        pub fn call( &mut self, callbacks:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function dynCallLegacy(sig, ptr, args )
+        pub fn apply( &mut self, signature:(), pointer:(), arguments:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _GetJSLoadTimeInfo(loadTimePtr) 
+        pub fn get_loadtime_metadata( &mut self, loadTimePtr:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _JS_Cursor_SetImage(ptr, length)
+        pub fn set_cursor_image( &mut self, pointer:(), length:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _JS_Cursor_SetShow(show) 
+        pub fn set_cursor_state( &mut self, pointer:(), length:() ) -> Result<(), ()>
         {
             Ok(())
         }
@@ -217,6 +252,8 @@ pub mod database
 
 pub mod device
 {
+    use crate::callbacks::Callback;
+    use crate::events::Event;
     pub static mut mediaDevicesRunDependencyPending:bool = true;
 
     #[derive(Copy, Clone, Debug)]
@@ -293,8 +330,9 @@ pub mod device
     #[derive(Copy, Clone, Debug)]
     pub enum Device
     {
-        VideoDevice( Video )
-        MediaDevice( Media )
+        Video( Video ),
+        Media( Media ),
+        Accelerometer( Accelerometer ),
     }
 
     impl Device
@@ -305,7 +343,7 @@ pub mod device
             use Device::{ * };
             match self
             {
-                VideoDevice( video ) => { Ok( () ) }
+                Video( video ) => { Ok( () ) }
                 _ => { Ok( () ) }
             }
         }
@@ -355,6 +393,77 @@ pub mod device
             Ok( () )
         }
     }
+
+    #[derive(Copy, Clone, Debug)]
+    pub struct Sensor
+    {
+        
+    }
+
+    impl Sensor
+    {
+        // function JS_RequestDeviceSensorPermissions(permissions) 
+        pub fn get_sensor_permissions( permissions:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+
+    #[derive(Copy, Clone, Debug)]
+    pub struct Accelerometer
+    {
+        
+    }
+
+    impl Accelerometer
+    {
+        
+        // function _JS_Accelerometer_IsRunning()
+        pub fn get( &mut self, totalJSptr:(), usedJSptr:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function JS_Accelerometer_eventHandler()
+        pub fn handle_accelerometer_event( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function JS_DeviceMotion_add()
+        pub fn add( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function JS_DeviceMotion_eventHandler(event ) 
+        pub fn handle_motion_event( &mut self, event:Event ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function InitializeAccelerometer(frequency) 
+        pub fn initialize( &mut self, frequency:u8 ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function JS_DefineAccelerometerMultiplier() 
+        pub fn multiply( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _JS_Accelerometer_Start(callback, frequency) 
+        pub fn start( &mut self, callback:Callback, frequency:u8 ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _JS_Accelerometer_Stop()
+        pub fn stop( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function JS_DeviceMotion_remove() 
+        pub fn remove( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
 }
 
 pub mod display
@@ -380,6 +489,11 @@ pub mod error
 
     // function ReportError(message) 
     pub fn report( message:() ) -> Result<(),()>
+    {
+        Ok( () )
+    }    
+    // function LogErrorWithAdditionalInformation(error) 
+    pub fn log( &mut self, error:() ) -> Result<(), ()>
     {
         Ok( () )
     }
@@ -498,6 +612,73 @@ pub mod events
         pub fn listen( &mut self, event:() ) -> Result<(), ()>
         {
             Ok( () )
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Event
+    {
+
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Events
+    {
+        pub eventSourceInstances:Vec<Event>,
+        pub nextInstanceId:u8,
+    }
+
+    impl Events
+    {
+        // Get: function(id)
+        pub fn get( &mut self, id:u8 ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // Set: function(event)
+        pub fn set( &mut self, event:Event ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // _callOnError: function(errCallback, id, reason)
+        pub fn error( &mut self, errCallback:Callback, id:u8, reason:&str ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // Remove: function(id)
+        pub fn remove( &mut self, id:u8 ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // _GenericEventHandler: function(id, eventName, e, onMessage) 
+        pub fn handle( &mut self, id:u8, name:&str, event:Event, message:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _ES_Create(urlPtr, withCredentials, onOpen, onMessage, onError ) 
+        pub fn create( &mut self, urlPtr:(), withCredentials:(), onOpen:(), onMessage:(), onError:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _ES_AddEventHandler(id, eventNamePtr )
+        pub fn add( &mut self, id:u8, name:&str ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _ES_Close(id)
+        pub fn close( &mut self, id:u8 ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _ES_IsSupported() 
+        pub fn verify( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function _ES_Release(id)
+        pub fn release( &mut self, id:u8 ) -> Result<(), ()>
+        {
+            Ok(())
         }
     }
 }
@@ -807,6 +988,25 @@ pub mod payments
             }
         }
     }
+}
+
+pub mod physics
+{
+    #[derive( Copy, Clone, Debug )]
+    pub struct Physics
+    {
+
+    }
+
+    impl Physics
+    {
+        //  function JS_ComputeGravity(accelerometerValue, linearAccelerationValue ) 
+        pub fn compute_gravity( accelerometerValue:(), linearAccelerationValue:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+
 }
 
 pub mod process
@@ -1124,6 +1324,11 @@ pub mod signals
         {
             Ok(())
         }
+        // function _CopyToBrowserClipboard(textToCopy)
+        pub fn copy_to_clipboard( &mut self, textToCopy:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
     }
 }
 
@@ -1133,6 +1338,16 @@ pub mod stack
     //let stackTraceReferenceMatch = jsStackTrace().match(new RegExp(stackTraceReference));
     //if (stackTraceReferenceMatch){ Module.stackTraceRegExp = new RegExp(stackTraceReference.replace("([^\\n]+)", stackTraceReferenceMatch[4].replace(/[\\^${}[\]().*+?|]/g, "\\$&")).replace("jsStackTrace", "[^\\n]+")); }
     
+}
+
+pub mod string
+{
+    pub use std::string::{ * };    
+    // function _ReturnString(str )
+    pub fn to_js( str:() ) -> Result<(), ()>
+    {
+        Ok( () )
+    }
 }
 
 pub mod sync
@@ -1151,6 +1366,98 @@ pub mod url
     pub fn read_domain_from( url:() ) -> Result<(), ()>
     {
         Ok(())
+    }
+}
+
+pub mod utf8
+{
+    // function UTF8ArrayToString(heapOrArray, idx, maxBytesToRead )
+    pub fn from_buffer_to_string( buffer:(), index:(), maximum:() ) -> Result<(), ()>
+    {
+        Ok( () )
+    }
+    // function UTF8ToString(ptr, maxBytesToRead) 
+    pub fn to_string( callbacks:() ) -> Result<(), ()>
+    {
+        Ok( () )
+    }
+}
+
+pub mod web
+{
+    pub struct Web
+    {
+
+    }
+
+    impl Web
+    {
+        // function _GameWeb_Alert(text)
+        pub fn alert( &self, text:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_ElementExists(elementId) 
+        pub fn available( &self, elementId:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_CleanupIndexedDB(pattern)
+        pub fn cleanup( &self, pattern:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_DeleteOldCatalogues()
+        pub fn delete( &self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetCdnUrl() 
+        pub fn get_cdn_url( &self, elementId:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetLandingPageUrl()
+        pub fn get_page_url( &self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetLandingPageUrl()
+        pub fn get_landing_page_url( &self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetLandingPageUrl()
+        pub fn get_settings_url( &self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetQueryParam(paramId )
+        pub fn get_query_parameter( &self, id:u8 ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_GetSentrySampleRate() 
+        pub fn get_sample_rate( &self, id:u8 ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_OpenUrl(url) 
+        // this = open url with self parameter
+        pub fn open_url( &self, this:bool ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_ReloadPage()
+        pub fn reload_page( &self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function _GameWeb_TrackLoadingStep(step)
+        pub fn tracking_loading_step( &self, step:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
     }
 }
 
@@ -1275,4 +1582,4 @@ pub fn main()
         let _ = domain();
     }
 }
-// 1278
+// 1585
