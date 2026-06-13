@@ -24,6 +24,35 @@ pub mod callbacks
     {
 
     }
+
+    impl Callback
+    {
+        // function preMain()
+        pub fn main( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function postRun()
+        pub fn run( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function addOnPreRun(cb)
+        pub fn add( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function addOnPreRun(cb)
+        pub fn initialize( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function addOnPostRun(cb)
+        pub fn ran( &mut self ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+    }
 }
 
 pub mod client
@@ -32,7 +61,7 @@ pub mod client
 
     pub struct Instance
     {
-
+        pub wasm:(),
     }
 
     impl Instance
@@ -46,6 +75,41 @@ pub mod client
         }
         // function createUnityInstance(t, n, d) 
         pub fn create( t:(), n:(), d:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function createWasm() 
+        pub fn create_wasm() -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function initRuntime() 
+        pub fn initialize() -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function keepRuntimeAlive()
+        pub fn refresh() -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function preRun() 
+        pub fn prepare() -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function instantiateArrayBuffer(binaryFile, imports, receiver) 
+        pub fn instantiate( binaryFile:(), imports:(), receiver:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function instantiateAsync(binary, binaryFile, imports, callback)
+        pub fn fetch( binary:(), binaryFile:(), imports:(), receiver:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function receiveInstance(instance, module)
+        pub fn receive( &mut self, module:() ) -> Result<(), ()>
         {
             Ok(())
         }
@@ -124,11 +188,38 @@ pub mod database
     {
         Ok( () )
     }
-
+    // function injectIndexedDBToAutomaticallyPersist()
+    pub fn inject() -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // IDBFS.queuePersist = function(mount)
+    pub fn persist() -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // function onPersistComplete()
+    pub fn persisted() -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // function startPersist()
+    pub fn start() -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // IDBFS.mount = function(mount)
+    pub fn mount() -> Result<(),()>
+    {
+        Ok( () )
+    }
 }
 
 pub mod device
 {
+    pub static mut mediaDevicesRunDependencyPending:bool = true;
+
+    #[derive(Copy, Clone, Debug)]
     pub struct Metadata
     {
         pub browser:(),
@@ -198,6 +289,89 @@ pub mod device
             Ok( () )
         }
     }
+
+    #[derive(Copy, Clone, Debug)]
+    pub enum Device
+    {
+        VideoDevice( Video )
+        MediaDevice( Media )
+    }
+
+    impl Device
+    {
+        // function updateVideoInputDevices(devices) 
+        pub fn update( &mut self, devices:() ) -> Result<(), ()>
+        {
+            use Device::{ * };
+            match self
+            {
+                VideoDevice( video ) => { Ok( () ) }
+                _ => { Ok( () ) }
+            }
+        }
+    }
+
+    #[derive(Copy, Clone, Debug)]
+    pub struct Video
+    {
+        
+    }
+
+    impl Video
+    {
+        // function matchToOldDevice(newDevice) 
+        pub fn pair( new_video_device:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function assignNewVideoInputId()
+        pub fn identify() -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+
+    #[derive(Copy, Clone, Debug)]
+    pub struct Media
+    {
+        
+    }
+
+    impl Media
+    {
+        // function removeEnumerateMediaDevicesRunDependency()
+        pub fn remove( new_video_device:() ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function enumerateMediaDeviceList()
+        pub fn enumerate() -> Result<(), ()>
+        {
+            Ok( () )
+        }
+        // function disableAccessToMediaDevices()
+        pub fn disable() -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
+}
+
+pub mod display
+{
+    pub struct Display
+    {
+        enabled:bool,
+    }
+
+    impl Display
+    {
+        // Module["SetFullscreen"] = function(fullscreen)
+        pub fn fullscreen( &mut self ) -> Result<(), ()>
+        {
+            Ok( () )
+        }
+    }
 }
 
 pub mod error
@@ -208,6 +382,20 @@ pub mod error
     pub fn report( message:() ) -> Result<(),()>
     {
         Ok( () )
+    }
+    // function assert(condition, text)
+    pub fn assert( condition:(), message ) -> Result<(),()>
+    {
+        Ok( () )
+    }
+
+    #[derive(Copy, Clone, Debug)]
+    pub enum ErrorCodes
+    {
+        PaymentConfigurationInvalidError = 10,
+        PaymentIGShopClosedWithUnsuccessfulPurchase = 302,
+        PaymentIGWindowNoListenerSupport = 303,
+        PaymentIGShopUrlLoadingError = 304,
     }
 
     pub struct PurchaseError
@@ -314,12 +502,42 @@ pub mod events
     }
 }
 
+pub mod fs
+{
+    pub use std::fs::{ * };
+    // function locateFile(path)
+    pub fn locateFile( path:() ) -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // function getBinary(file)
+    pub fn read_binary( file:() ) -> Result<(),()>
+    {
+        Ok( () )
+    }
+    // function getBinaryPromise(binaryFile)
+    pub fn read_binary_promise( binary:() ) -> Result<(),()>
+    {
+        Ok( () )
+    }
+
+}
+
 pub mod handles
 {
     #[derive(Copy, Clone, Debug)]
     pub struct Handler
     {
 
+    }
+}
+
+pub mod is
+{
+    // function isDataURI(filename) 
+    pub fn data_uri( filename:() ) -> Result<(), ()>
+    {
+        Ok(())
     }
 }
 
@@ -346,6 +564,16 @@ pub mod marker
 {
     pub use std::marker::{ * };
 } pub use self::marker::{ Send };
+
+pub mod mem
+{
+    pub use std::mem::{ * };
+    // function updateMemoryViews( ) 
+    pub fn update() -> Result<(),()>
+    {
+        Ok( () )
+    }
+}
 
 pub mod payments
 {
@@ -590,6 +818,13 @@ pub mod process
     {
         Ok( () )
     }
+    
+    pub fn abort( process:() ) -> Result<(), ()>
+    {
+        Ok( () )
+    }
+
+
 }
 
 pub mod promises
@@ -855,6 +1090,51 @@ pub mod promises
     }
 } pub use self::promises::{ Promise };
 
+pub mod signals
+{
+    pub struct Signal
+    {
+
+    }
+
+    impl Signal
+    {
+        //function SendMessage(gameObject, func, param)
+        pub fn message( &mut self, gameObject:(), function:(), parameter:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function addRunDependency(id) 
+        pub fn create_running( &mut self, id:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function getUniqueRunDependency(id) 
+        pub fn read_running( &mut self, id:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function removeRunDependency(id) 
+        pub fn remove_running( &mut self, id:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+        // function abort(what)
+        pub fn abort( &mut self, process:() ) -> Result<(), ()>
+        {
+            Ok(())
+        }
+    }
+}
+
+pub mod stack
+{
+    //let stackTraceReference = "(^|\\n)(\\s+at\\s+|)jsStackTrace(\\s+\\(|@)([^\\n]+):\\d+:\\d+(\\)|)(\\n|$)";
+    //let stackTraceReferenceMatch = jsStackTrace().match(new RegExp(stackTraceReference));
+    //if (stackTraceReferenceMatch){ Module.stackTraceRegExp = new RegExp(stackTraceReference.replace("([^\\n]+)", stackTraceReferenceMatch[4].replace(/[\\^${}[\]().*+?|]/g, "\\$&")).replace("jsStackTrace", "[^\\n]+")); }
+    
+}
+
 pub mod sync
 {
     pub use std::sync::{ * };
@@ -995,4 +1275,4 @@ pub fn main()
         let _ = domain();
     }
 }
-// 870
+// 1278
